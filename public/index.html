@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SSE Auto Reconnection Example</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+      }
+      #log {
+        border: 1px solid #ccc;
+        padding: 10px;
+        min-height: 150px;
+        overflow-y: auto;
+        background-color: #f9f9f9;
+      }
+      .message {
+        margin-bottom: 5px;
+        color: #333;
+      }
+      .status {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      .connecting {
+        color: orange;
+      }
+      .open {
+        color: green;
+      }
+      .closed {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Server-Sent Events: Auto Reconnection</h1>
+    <div class="status">
+      Connection Status:
+      <span id="connectionStatus" class="connecting">Connecting...</span>
+    </div>
+    <div id="log"></div>
+
+    <script>
+      const logDiv = document.getElementById("log");
+      const statusSpan = document.getElementById("connectionStatus");
+
+      function appendLog(message, type = "message") {
+        const p = document.createElement("p");
+        p.className = type;
+        p.textContent = message;
+        logDiv.appendChild(p);
+        logDiv.scrollTop = logDiv.scrollHeight; // Scroll to bottom
+      }
+
+      function updateStatus(status, className) {
+        statusSpan.textContent = status;
+        statusSpan.className = className;
+      }
+
+      function setupEventSource() {
+        appendLog(
+          "Attempting to connect to SSE stream...",
+          "status connecting"
+        );
+        updateStatus("Connecting...", "connecting");
+
+        // The magic happens here: EventSource API
+        const eventSource = new EventSource("http://localhost:3001/events");
+
+        // Event listener for incoming messages
+        eventSource.onmessage = function (event) {
+          appendLog(
+            `[${new Date().toLocaleTimeString()}] Received: ${
+              event.data
+            } | (Last Event ID: ${event.lastEventId})`
+          );
+        };
+
+        // Event listener for when the connection is opened
+        eventSource.onopen = function (event) {
+          appendLog("SSE Connection OPENED!", "status open");
+          updateStatus("Open", "open");
+          console.log("EventSource connection opened.", event);
+        };
+
+        // Event listener for errors, including connection drops and failed reconnections
+        eventSource.onerror = function (error) {
+          appendLog(
+            "SSE Connection ERROR! Attempting to reconnect...",
+            "status closed"
+          );
+          updateStatus("Error / Reconnecting...", "connecting");
+          console.error("EventSource encountered error:", error);
+          // EventSource automatically attempts to reconnect.
+          // The 'error' event fires when the connection is lost or if a reconnection fails.
+          // You can add more sophisticated logging/UI updates here.
+        };
+
+        // Important for demonstrating: The browser sends a 'Last-Event-ID' header
+        // with the ID of the last event it successfully received before a disconnect.
+        // The server can use this to resume the stream from where it left off.
+      }
+
+      setupEventSource();
+    </script>
+  </body>
+</html>
